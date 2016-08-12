@@ -1,0 +1,58 @@
+flags:
+  text:
+    integer-simple: false
+  time-locale-compat:
+    old-locale: false
+resolver: ghc-8.0.0 
+packages:
+- location: '.'
+- location: '../dbrecord'
+- location:
+   git: https://github.com/tomjaguarpaw/product-profunctors
+   commit: 401a5a4e62c908d46daf090d352851599073e828
+- location:
+   git: https://github.com/tomjaguarpaw/haskell-opaleye
+   commit: 153bd24f1930607ca17aa221f8014ae5f0bed326
+extra-deps:
+- text-1.2.2.1
+- aeson-0.11.1.4
+- transformers-0.5.2.0
+- uuid-types-1.0.3
+- vector-0.11.0.0
+- attoparsec-0.13.0.2
+- dlist-0.7.1.2
+- fail-4.9.0.0
+- hashable-1.2.4.0
+- mtl-2.2.1
+- primitive-0.6.1.0
+- random-1.1
+- scientific-0.3.4.6
+- syb-0.6
+- tagged-0.8.4
+- unordered-containers-0.2.7.0
+- resource-pool-0.2.3.2
+- monad-control-1.0.1.0
+- stm-2.4.4.1
+- transformers-base-0.4.4
+- transformers-compat-0.5.1.4
+- postgresql-simple-0.5.1.2
+- bytestring-builder-0.10.6.0.0
+- case-insensitive-1.2.0.6
+- postgresql-libpq-0.9.1.1
+- base16-bytestring-0.1.1.6
+- contravariant-1.4
+- profunctors-5.2
+- semigroups-0.18.1
+- time-locale-compat-0.1.1.1
+- uuid-1.3.12
+- void-0.7.1
+- StateVar-1.1.0.4
+- base-orphans-0.5.4
+- bifunctors-5.3
+- comonad-5
+- cryptonite-0.15
+- distributive-0.5.0.2
+- memory-0.12
+- network-info-0.2.0.8
+- time-1.5.0.1
+extra-package-dbs: []
