@@ -31,6 +31,8 @@ import Data.Functor.Identity
 import Data.Profunctor
 import Data.Functor.Contravariant (contramap)
 import Data.Profunctor.Product.Default
+import           Data.Profunctor.Product (ProductProfunctor, empty, (***!))
+import qualified Data.Profunctor.Product as PP
 import GHC.Generics
 import Control.Arrow
 import Data.Proxy
@@ -217,58 +219,67 @@ class AggSpec (cn :: Symbol) (f :: * -> *) (t :: *) (aggs :: [AggFn]) (isMat :: 
   type AggSpecRes cn f t aggs isMat :: *
   aggSpec :: Proxy '(cn, f, t, aggs, isMat) -> Aggregator (Col f cn t) (AggSpecRes cn f t aggs isMat)
 
-instance AggSpec cn Op t ('GroupBy cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('GroupBy cn ': aggs) 'True = Col Op cn (AggRes ('GroupBy cn) t)
+instance ( Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('GroupBy cn ': aggs) 'True where
+  type AggSpecRes cn f t ('GroupBy cn ': aggs) 'True = Col (Agg f ('GroupBy cn ': aggs)) cn t
   aggSpec _ = O.groupBy
 
-instance AggSpec cn (Prj Op flds) t ('GroupBy cn ': aggs) 'True where
-  type AggSpecRes cn (Prj Op flds) t ('GroupBy cn ': aggs) 'True
-    = Col Op cn (AggRes ('GroupBy cn) t)
---  aggSpec _ = O.groupBy
-
-instance AggSpec cn Op t ('Sum cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('Sum cn ': aggs) 'True = Col Op cn (AggRes ('Sum cn) t)
-  aggSpec _ = O.sum
-
-instance AggSpec cn Op t ('Count cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('Count cn ': aggs) 'True = Col Op cn (AggRes ('Count cn) t)
+instance ( Col f cn t ~ O.Column (OpTypeRep t)
+         , t ~ Int64
+         ) => AggSpec cn f t ('Count cn ': aggs) 'True where
+  type AggSpecRes cn f t ('Count cn ': aggs) 'True = Col (Agg f ('Count cn ': aggs)) cn t
   aggSpec _ = O.count
 
 -- TODO: Add a TypeError expressing t ~ Double
-instance (t ~ Double) => AggSpec cn Op t ('Avg cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('Avg cn ': aggs) 'True = Col Op cn (AggRes ('Avg cn) t)
+instance ( t ~ Double
+         ,  Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('Avg cn ': aggs) 'True where
+  type AggSpecRes cn f t ('Avg cn ': aggs) 'True = Col (Agg f ('Avg cn ': aggs)) cn t
   aggSpec _ = O.avg  
-  
-instance AggSpec cn (Prj Op flds) t ('Sum cn ': aggs) 'True where
-  type AggSpecRes cn (Prj Op flds) t ('Sum cn ': aggs) 'True
-    = Col Op cn (AggRes ('Sum cn) t)
---  aggSpec _ = O.sum
 
-instance (PGOrd (OpTypeRep t)) => AggSpec cn Op t ('Max cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('Max cn ': aggs) 'True = Col Op cn (AggRes ('Max cn) t)
+instance ( Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('Sum cn ': aggs) 'True where
+  type AggSpecRes cn f t ('Sum cn ': aggs) 'True
+    = Col (Agg f ('Sum cn ': aggs)) cn t
+  aggSpec _ = O.sum
+
+instance ( PGOrd (OpTypeRep t)
+         , Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('Max cn ': aggs) 'True where
+  type AggSpecRes cn f t ('Max cn ': aggs) 'True = Col (Agg f ('Max cn ': aggs)) cn t
   aggSpec _ = O.max
 
-instance (PGOrd (OpTypeRep t)) => AggSpec cn Op t ('Min cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('Min cn ': aggs) 'True = Col Op cn (AggRes ('Min cn) t)
+instance ( PGOrd (OpTypeRep t)
+         , Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('Min cn ': aggs) 'True where
+  type AggSpecRes cn f t ('Min cn ': aggs) 'True = Col (Agg f ('Min cn ': aggs)) cn t
   aggSpec _ = O.min
 
 -- TODO: Add a TypeError expressing t ~ Bool
-instance (t ~ Bool) => AggSpec cn Op t ('BoolOr cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('BoolOr cn ': aggs) 'True = Col Op cn (AggRes ('BoolOr cn) t)
+instance ( t ~ Bool
+         , Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('BoolOr cn ': aggs) 'True where
+  type AggSpecRes cn f t ('BoolOr cn ': aggs) 'True = Col (Agg f ('BoolOr cn ': aggs)) cn t
   aggSpec _ = O.boolOr
 
 -- TODO: Add a TypeError expressing t ~ Bool
-instance (t ~ Bool) => AggSpec cn Op t ('BoolAnd cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('BoolAnd cn ': aggs) 'True = Col Op cn (AggRes ('BoolAnd cn) t)
+instance ( t ~ Bool
+         , Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('BoolAnd cn ': aggs) 'True where
+  type AggSpecRes cn f t ('BoolAnd cn ': aggs) 'True = Col (Agg f ('BoolAnd cn ': aggs)) cn t 
   aggSpec _ = O.boolOr  
 
-instance AggSpec cn Op t ('ArrayAgg cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('ArrayAgg cn ': aggs) 'True = Col Op cn (AggRes ('ArrayAgg cn) t)
+instance ( Col f cn (Vector t) ~ O.Column (OpTypeRep (Vector t))
+         , Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('ArrayAgg cn ': aggs) 'True where
+  type AggSpecRes cn f t ('ArrayAgg cn ': aggs) 'True = Col (Agg f ('ArrayAgg cn ': aggs)) cn t
   aggSpec _ = O.arrayAgg
 
 -- TODO: Add a TypeError expressing t ~ Text
-instance (t ~ Text) => AggSpec cn Op t ('StringAgg cn ': aggs) 'True where
-  type AggSpecRes cn Op t ('StringAgg cn ': aggs) 'True = Col Op cn (AggRes ('StringAgg cn) t)
+instance ( t ~ Text
+         , Col f cn t ~ O.Column (OpTypeRep t)
+         ) => AggSpec cn f t ('StringAgg cn ': aggs) 'True where
+  type AggSpecRes cn f t ('StringAgg cn ': aggs) 'True = Col (Agg f ('StringAgg cn ': aggs)) cn t 
   aggSpec _ = O.stringAgg (O.pgString "") -- TODO: Fix the default string
   
 instance AggSpec cn f t aggs (ElemAgg cn aggs)
@@ -293,7 +304,7 @@ instance TabProps 'True t where
   tabProps _ coln = required coln
 
 instance TabProps 'False t where
-  tabProps _ coln = {-lmap getDefVal $-} optional coln
+  tabProps _ coln = optional coln
 
 instance QueryRunnerColumnDefault (PGArray a) [b]
          => QueryRunnerColumnDefault (PGArray a) (Vector b) where
@@ -373,104 +384,6 @@ instance ( ToJSON a
 printSql :: Default Unpackspec a a => Query a -> IO ()
 printSql = putStrLn . maybe "Empty query" id . showSqlForPostgres
 
-data TestDB
-
-newtype Age = Age {getAge :: Int}
-  deriving (Generic, Num)
-
-newtype Age1 = Age1 {getAge1 :: Age}
-  deriving (Generic, Num)
-
-data Sum1 = Con1 | Con2
-  deriving (Generic, Show, Read)
-
-data UID = UID {uid :: Text} deriving (Generic)
-instance ToJSON UID
-instance FromJSON UID
-
-data User f = User
-  { user_id :: Col f "user_id" Age
-  , name    :: Col f "name" Text
-  , age     :: Col f "age" Sum1
-  } deriving (Generic)
-
-instance ( Profunctor p
-         , Applicative (p (User f))
-         , Default p (Col f "user_id" Age) (Col g "user_id" Age)
-         , Default p (Col f "name" Text) (Col g "name" Text)
-         , Default p (Col f "age" Sum1) (Col g "age" Sum1)
-         ) => Default p (User f) (User g) where
-  def = User <$> lmap user_id def
-             <*> lmap name def
-             <*> lmap age def
-
-  
-instance Database TestDB where
-  type Tables TestDB = '[User Hask]
-  type Types TestDB  = '[Sum1]
-
-instance Table TestDB (User Hask) where
-  type HasDefault (User Hask) = '["user_id"]
-
-testRecQ :: Query (HList Identity (GetTableFields (User Op)))
-testRecQ = proc () -> do
-  u <- queryRec (Tab @TestDB @User) -< ()
-  returnA -< u
-
-testQ :: Query (User Op)
-testQ = proc () -> do
-  u <- query (Tab @TestDB @User) -< ()
-  restrict -< name u .== constant (T.pack "dfdf")
-  restrict -< age u .== constant Con1
-  returnA -< u
-
---testPrjQ :: Query (User (Prj Op '["name", "age"]))
-testPrjQ = proc () -> do
-  u <- query (Tab @TestDB @User) -< ()
-  returnA -< project @'["age", "name"] u
-
-
-testPG :: PG [User Hask]
-testPG = getAll testQ
-
-testPrj :: PG _
-testPrj = getAll testPrjQ
-
-testTrans :: ReaderT (Config a) IO [User Hask]
-testTrans = runTransaction testPG
-
-testPGIO :: ReaderT (Config a) PG [User Hask]
-testPGIO = getAll testQ
-
-testLJoinQ = leftJoin testQ testQ (const $ (constant True :: ReadSpec Bool))
-testLJoinQ' = leftJoin testPrjQ testQ (const $ (constant True :: ReadSpec Bool))
-testLJoinQ'' = leftJoin testQ testPrjQ (const $ (constant True :: ReadSpec Bool))
-
-testLJPrjQ = proc () -> do
-  ljres <- testLJoinQ' -< ()
-  returnA -< leftTab ljres
-
-testLJoin = getAll testLJoinQ :: ReaderT (Config a) PG _
-
-testAggQ1 = aggregate @'[Sum "user_id", GroupBy "name"] (Tab @TestDB @User) testQ
-testAggQ2 = aggregate @'[Sum "age", GroupBy "name"] (Tab @TestDB @User) testPrjQ
-testAggQ3 = Opaleye.Record.aggregateOrdered @'[Sum "user_id", Sum "age", GroupBy "name"] (Tab @TestDB @User) (asc name) testQ
-
-testAgg = getAll testAggQ1 :: ReaderT (Config a) PG _
-
-newtype DefVal a = DefVal { getDefVal :: (Maybe a) }
-  deriving (Show, Eq, Ord, Generic, Functor, Applicative, Monad)
-
-override :: a -> DefVal a
-override = DefVal . Just
-
-auto :: DefVal a
-auto = DefVal Nothing
-
-instance Default Constant a (O.Column b) =>
-         Default Constant (DefVal a) (DefVal (O.Column b)) where
-  def = Constant (fmap constant)
-
 instance Default Constant a (O.Column b) =>
          Default Constant (Maybe a) (Maybe (O.Column b)) where
   def = Constant (fmap constant)
@@ -484,23 +397,13 @@ instance Default Constant a (Maybe a) where
 instance (KnownSymbol tyName) => IsSqlType (PGCustom ty (EnumRep ('PGTypeName tyName) enums)) where
   showPGType _ = symbolVal (Proxy :: Proxy tyName)  
 
-uUserRow = User Nothing (T.pack "fd") Con1 :: HaskW TestDB User
 
-testInsert = insert (Tab @TestDB @User) (User (Just 1) (T.pack "fd") Con1) :: ReaderT (Config a) PG ()
-
-testInsert' = insertRet (Tab @TestDB @User) (User Nothing (T.pack "fd") Con2) id :: ReaderT (Config a) PG [User Hask]
-testInsert'' = insertRet (Tab @TestDB @User) (User Nothing (T.pack "fd") Con2) (project @'["name"]) :: ReaderT (Config a) PG [User _]
-testDelete = delete (Tab @TestDB @User) (\_ -> constant False) :: ReaderT (Config a) PG Int64
-testUpdate = update (Tab @TestDB @User) (\_ -> constant uUserRow) (\_ -> constant False) :: ReaderT (Config a) PG Int64
-testUpdate' = updateRet (Tab @TestDB @User) (\_ -> constant uUserRow) (\_ -> constant False) id :: ReaderT (Config a) PG [User Hask]
-
-testUpdate'' = updateRet (Tab @TestDB @User) (\_ -> constant uUserRow) (\_ -> constant False) (project @'["age"]) :: ReaderT (Config a) PG [User _]
 
 type family OpalResult (f :: * -> *) = (r :: * -> *) | r -> f where
   OpalResult Op            = Hask
-  OpalResult (Prj Op flds) = Prj Hask flds
+  OpalResult (Prj f flds)  = Prj (OpalResult f) flds
   OpalResult (LJ f g)      = LJ (OpalResult f) (OpalResult g)
-  OpalResult (Agg Op aggs) = Agg Hask aggs
+  OpalResult (Agg f aggs)  = Agg (OpalResult f) aggs
 
 getAll :: ( Default QueryRunner (tab f) (tab (OpalResult f))
          , MonadPG m
@@ -648,6 +551,10 @@ instance Default ColProject (O.Column c) (O.Column c) where
 
 instance Default ColProject (O.Column c) (VoidF (O.Column c)) where
   def = ColProject $ const (Const ())
+
+instance ProductProfunctor ColProject where
+  empty = PP.empty
+  (***!) = PP.defaultProfunctorProduct
 
 colProject :: Default ColProject col prjcol => col -> prjcol
 colProject = toVoidCol def
