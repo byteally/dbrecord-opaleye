@@ -17,17 +17,28 @@ data User f = User
 ```
 
 * When you create a query with dbrecord-opaleye selecting all columns you would get
+
+
 `(User Op)`
+
+
 Op (code for Opaleye) in the above code snippet indicates all the fields within `User` are db values.
 For example Int is reperestend as PGInt4 in Opaleye. So in `User Op`, `user_id` 's type would be PGInt4  
 
 * When you run the query using `getAll` you would get 
+
+
 `(User Hask)`
+
 
 Hask indicates that all the fields within `User` are normal haskell values and in this case `userId` 's type would be `Int`
 
+
 * On projection of name, age you would get 
-`User Prj Op '["name", "age"]`
+
+
+`User (Prj Op '["name", "age"])`
+
 
 All those fields that are not projected would have the type Void of the field's type. We have not projected Gender and user_id,  hence their types would be Void Gender and Void user_id respectively.
 
@@ -126,6 +137,8 @@ userPrjQ1 = proc () -> do
 Moving to the Hask layer from DB layer using getAll
 ---------------------------------------------------
 
+```haskell
+
 -- getAll on UserQ would transform (User Op) to User Hask
 userPG :: PG [User Hask]
 userPG = getAll userQ
@@ -138,7 +151,7 @@ userTrans = runTransaction userPG
 
 userPGIO :: ReaderT (Config a) PG [User Hask]
 userPGIO = getAll userQ
-
+```
 
 
 
