@@ -91,7 +91,7 @@ instance ( Profunctor p
   
 instance Database TestDB where
   type Tables TestDB = '[User Hask, Address Hask]
-  type Types TestDB  = '[Age, Gender]
+  type Types TestDB  = '[Gender]
 
 instance Table TestDB (User Hask) where
   type HasDefault (User Hask) = '["user_id"]

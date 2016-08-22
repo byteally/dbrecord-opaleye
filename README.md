@@ -48,6 +48,9 @@ Hask indicates that all the fields within `User` are normal haskell values and i
 
 All those fields that are not projected would have the type Void of the field's type. We have not projected Gender and user_id,  hence their types would be Void Gender and Void user_id respectively.
 
+
+> Please note that *dbrecord-opaleye* works only with GHC 8 & above
+
 Benefits
 ---------
 Almost all the ORMs conveniently ignore projections or lie about the types by having it as nullable in all scenarios to accommodate projection. This gives the caller the wrong nullability information about the field. With dbrecord-opaleye you can project any subset of the table and still work with the type defined for that table. This greatly reduced verbosity since you dont have to maintain n different combinations of a type depending on the operations you perform with them and also the caller will always clear indication of the shape of the data. For example they can't access the voided out field and do any meaningful operation. Doing so would result in a type error.
@@ -102,7 +105,7 @@ data TestDB
 
 instance Database TestDB where
   type Tables TestDB = '[User Hask, Address Hask]
-  type Types TestDB  = '[Age, Gender]
+  type Types TestDB  = '[Gender]
 
 instance Table TestDB (User Hask) where
   type HasDefault (User Hask) = '["user_id"]
