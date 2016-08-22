@@ -25,6 +25,9 @@ data User f = User
 Op (code for Opaleye) in the above code snippet indicates all the fields within `User` are db values.
 For example Int is reperestend as PGInt4 in Opaleye. So in `User Op`, `user_id` 's type would be PGInt4  
 
+
+
+
 * When you run the query using `getAll` you would get 
 
 
@@ -32,6 +35,9 @@ For example Int is reperestend as PGInt4 in Opaleye. So in `User Op`, `user_id` 
 
 
 Hask indicates that all the fields within `User` are normal haskell values and in this case `userId` 's type would be `Int`
+
+
+
 
 
 * On projection of name, age you would get 
@@ -67,10 +73,10 @@ data Gender = Male | Female | Other
 
 -- Our models
 data User f = User
-  { user_id :: Col f "user_id" UserId
-  , name    :: Col f "name" Text
-  , age     :: Col f "age" Age
-  , gender  :: Col f "gender" Gender
+  { user_id    :: Col f "user_id" UserId
+  , name       :: Col f "name" Text
+  , age        :: Col f "age" Age
+  , gender     :: Col f "gender" Gender
   , address_id :: Col f "address_id" AddressId
  } deriving (Generic)
 
