@@ -384,9 +384,6 @@ instance ( ToJSON a
 printSql :: Default Unpackspec a a => Query a -> IO ()
 printSql = putStrLn . maybe "Empty query" id . showSqlForPostgres
 
-instance Default Constant a (O.Column b) =>
-         Default Constant (Maybe a) (Maybe (O.Column b)) where
-  def = Constant (fmap constant)
 
 instance Default Constant a a where
   def = Constant id
