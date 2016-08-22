@@ -270,6 +270,7 @@ Pending items
 -------------
 * Fix aggregation on multiple relation composed into another type
 * Migration feature for dbrecord
+* Check constraint expression support in dbrecord
 
 
 Would love to get your feedback and contributions are most welcome!
