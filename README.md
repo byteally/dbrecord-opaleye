@@ -18,43 +18,28 @@ data User f = User
 
 * When you create a query with dbrecord-opaleye selecting all columns you would get
 
+  `(User Op)`
 
-`(User Op)`
-
-
-Op (code for Opaleye) in the above code snippet indicates all the fields within `User` are db values.
-For example Int is represented as PGInt4 in Opaleye. So in `User Op`, `user_id` 's type would be PGInt4  
-
-
-
+  Op (code for Opaleye) in the above code snippet indicates all the fields within `User` are db values.
+  For example Int is represented as PGInt4 in Opaleye. So in `User Op`, `user_id` 's type would be PGInt4  
 
 * When you run the query using `getAll` you would get 
 
+  `(User Hask)`
 
-`(User Hask)`
-
-
-Hask indicates that all the fields within `User` are normal haskell values and in this case `userId` 's type would be `Int`
-
-
-
-
+  Hask indicates that all the fields within `User` are normal haskell values and in this case `userId` 's type would be `Int`
 
 * On projection of name, age you would get 
 
+  `User (Prj Op '["name", "age"])`
 
-`User (Prj Op '["name", "age"])`
-
-
-All those fields that are not projected would have the type Void of the field's type. We have not projected Gender and user_id,  hence their types would be Void Gender and Void user_id respectively.
-
+  All those fields that are not projected would have the type Void of the field's type. We have not projected Gender and user_id,  hence their types would be Void Gender and Void user_id respectively.
 
 > Please note that *dbrecord-opaleye* works only with GHC 8 & above
 
 Benefits
 ---------
 Almost all the ORMs conveniently ignore projections or lie about the types by having it as nullable in all scenarios to accommodate projection. This gives the caller the wrong nullability information about the field. With dbrecord-opaleye you can project any subset of the table and still work with the type defined for that table. This greatly reduced verbosity since you dont have to maintain n different combinations of a type depending on the operations you perform with them and also the caller will always clear indication of the shape of the data. For example they can't access the voided out field and do any meaningful operation. Doing so would result in a type error.
-
 
 Example
 ----------
@@ -92,9 +77,7 @@ data Address f = Address
 
 } deriving (Generic)
 
-
 ```
-
 
 The schema information of the database can be defined using the following instances
 which are part of [dbrecord](https://github.com/byteally/dbrecord). `dbrecord-opaleye` is built on top of [dbrecord](https://github.com/byteally/dbrecord)
@@ -114,11 +97,9 @@ instance Table TestDB (Address Hask)
 
 ```
 
-
 More query examples
 ------------------
 ```haskell
-
 
 -- A simple straight forward query on the user table 
 -- would give us (User Op)
@@ -162,8 +143,6 @@ userPGIO :: ReaderT (Config a) PG [User Hask]
 userPGIO = getAll userQ
 ```
 
-
-
 Left join
 ---------
 ```haskell
@@ -204,8 +183,6 @@ userLJoin = getAll userLJoinQ :: ReaderT (Config a) PG _
 
 ```
 
-
-
 Aggregation
 -----------
 
@@ -229,7 +206,6 @@ userAggQ5 = aggregate @'[GroupBy "name"] (Tab @TestDB @User) userLJPrjQ'
 userAgg = getAll userAggQ1 :: ReaderT (Config a) PG _
 
 ```
-
 
 Insert, Update, Delete
 --------------------------
@@ -265,7 +241,6 @@ userUpdate'' = updateRet (Tab @TestDB @User) (\_ -> constant uUserRow) (\_ -> co
 
 ```
 
-
 Pending items
 -------------
 * Fix aggregation on multiple relation composed into another type
@@ -274,5 +249,3 @@ Pending items
 
 
 Would love to get your feedback and contributions are most welcome!
-
-
