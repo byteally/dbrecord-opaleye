@@ -23,7 +23,7 @@ data User f = User
 
 
 Op (code for Opaleye) in the above code snippet indicates all the fields within `User` are db values.
-For example Int is reperestend as PGInt4 in Opaleye. So in `User Op`, `user_id` 's type would be PGInt4  
+For example Int is represented as PGInt4 in Opaleye. So in `User Op`, `user_id` 's type would be PGInt4  
 
 
 
