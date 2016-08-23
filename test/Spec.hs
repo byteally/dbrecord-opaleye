@@ -21,13 +21,13 @@ import Control.Arrow
 data TestDB
 
 newtype Age = Age {getAge :: Int}
-  deriving (Generic, Num)
+  deriving (Generic)
 
 newtype UserId = UserId {getUserId :: Int}
-  deriving (Generic, Num)
+  deriving (Generic)
 
 newtype AddressId = AddressId {getAddressId :: Int}
-  deriving (Generic, Num)
+  deriving (Generic)
 
 data Gender = Male | Female | Other
   deriving (Generic, Show, Read)  
