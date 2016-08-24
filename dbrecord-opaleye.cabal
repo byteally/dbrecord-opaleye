@@ -18,7 +18,7 @@ library
   exposed-modules:     Opaleye.Record
   build-depends:       base >= 4.7 && < 5
                      , dbrecord == 0.1.*
-                     , opaleye == 0.4.2.*
+                     , opaleye >= 0.4.2
                      , time             >= 1.5.0
                      , template-haskell == 2.11.*
                      , uuid-types        >=1.0.0
