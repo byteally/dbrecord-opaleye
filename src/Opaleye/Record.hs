@@ -1,11 +1,11 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 {-# LANGUAGE DataKinds, TypeFamilyDependencies, UndecidableInstances, ExplicitForAll, TypeApplications, ScopedTypeVariables, FlexibleContexts, MultiParamTypeClasses, DeriveGeneric, Arrows, TypeOperators, FlexibleInstances, GeneralizedNewtypeDeriving, GADTs, PartialTypeSignatures #-}
 -- | 
 
 module Opaleye.Record where
 
-import Opaleye hiding (Column, Table, leftJoin, aggregate)
+import Opaleye hiding (Column, Table, leftJoin, aggregate, literalColumn)
 import qualified Opaleye as O
-import Opaleye.Constant
 import Opaleye.Internal.TableMaker (ColumnMaker)
 import Opaleye.Internal.Join (NullMaker)
 import Database.Migration hiding (Column, def, Col)
@@ -34,7 +34,6 @@ import Data.Profunctor.Product.Default
 import           Data.Profunctor.Product (ProductProfunctor, empty, (***!))
 import qualified Data.Profunctor.Product as PP
 import GHC.Generics
-import Control.Arrow
 import Data.Proxy
 import Control.Arrow ((>>^))
 import GHC.TypeLits
@@ -47,6 +46,7 @@ import Data.Typeable
 import Data.List (find)
 import Text.Read
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as HPQ
+import Opaleye.Internal.PGTypes (literalColumn)
 
 
 data Op t
@@ -129,9 +129,8 @@ type family OpTypeRep (t :: *) = (r :: *) | r -> t where
   OpTypeRep (JsonStr a)   = PGCustom (JsonStr a) PGJson
   OpTypeRep UUID          = PGUuid
   OpTypeRep (Maybe t)     = Nullable (OpTypeRep t)
-  OpTypeRep (Vector t)       = PGArray (OpTypeRep t)
-  OpTypeRep ByteString       = PGBytea
-  OpTypeRep a                = PGCustom a (GetPGTypeK (GetPGTypeRep a) (GetTypeFields a))
+  OpTypeRep (Vector t)    = PGArray (OpTypeRep t)
+  OpTypeRep a             = PGCustom a (GetPGTypeK (GetPGTypeRep a) (GetTypeFields a))
 
 data PGCustom a pg
 data OpRep (n :: PGTypeK)
@@ -156,7 +155,6 @@ type family GetOpFields (f :: * -> *) (fs :: [*]) :: [*] where
 queryRec :: forall db tab flds opFlds.
            ( Table db (tab Hask)
            , Default ColumnMaker (HList Identity opFlds) (HList Identity opFlds)
-           , All (TabProps 'True) (GetTableFields (tab Hask))
            , flds ~ (GetTableFields (tab Hask))
            , opFlds ~ GetOpFields Op flds
            , TabProps2 db tab flds
@@ -168,7 +166,6 @@ queryRec tab =
 query :: forall db tab flds opFlds.
         ( Table db (tab Hask)
         , Default ColumnMaker (HList Identity opFlds) (HList Identity opFlds)
-        , All (TabProps 'True) (GetTableFields (tab Hask))
         , flds ~ (GetTableFields (tab Hask))
         , opFlds ~ GetOpFields Op flds
         , TabProps2 db tab flds
@@ -361,7 +358,7 @@ instance ( Typeable t
                                        ++ "expecting: " ++ (T.unpack pgTy) ++ ", saw: " ++ show tName)
 
 instance Show t => Default Constant t (O.Column (PGCustom t (EnumRep pgK cons))) where
-  def = Constant (O.literalColumn . HPQ.OtherLit . toPG)
+  def = Constant (literalColumn . HPQ.OtherLit . toPG)
     where toPG val = "'" ++ show val ++ "'"
 
 instance ( Default Constant [a] (O.Column (PGArray arep))
@@ -423,10 +420,10 @@ data LJTabs a b (f :: * -> *) where
 data LJ (f :: * -> *) (g :: * -> *) t
 
 leftTab :: LJTabs tab1 tab2 (LJ f g) -> tab1 f
-leftTab (LJTabs l r) = l
+leftTab (LJTabs l _) = l
 
 rightTab :: LJTabs tab1 tab2 (LJ f g) -> tab2 (LJoin g)
-rightTab (LJTabs l r) = r
+rightTab (LJTabs _ r) = r
 
 instance ( Profunctor p
          , Applicative (p (LJTabs tab1 tab2 (LJ f1 g1)))
@@ -446,8 +443,6 @@ leftJoin tab1 tab2 cond = O.leftJoin tab1 tab2 cond >>^ toLJTabs
 
 insert :: forall db tab m.
          ( Table db (tab Hask)
-         , SingCols db (GenTabFields (Rep (tab Hask)))
-         , KnownSymbol (GenTyCon (Rep (tab Hask)))
          , TabProps2 db tab (GenTabFields (Rep (tab Hask)))
          , GTypeToRec Identity (Rep (Write Op db tab)) (GetOpFields (Write' Op db tab) (GenTabFields (Rep (tab Hask))))
          , Generic (Write Op db tab)
@@ -461,8 +456,6 @@ insert tab row = liftPG $ do
 delete :: forall db tab m.
          ( MonadPG m
          , Table db (tab Hask)
-         , KnownSymbol (GenTyCon (Rep (tab Hask)))
-         , SingCols db (GenTabFields (Rep (tab Hask)))
          , TabProps2 db tab (GenTabFields (Rep (tab Hask)))
          , Generic (tab Op)
          , GRecToType Identity (Rep (tab Op)) (GetOpFields Op (GenTabFields (Rep (tab Hask))))
@@ -476,8 +469,6 @@ delete tab cond = liftPG $ do
 update :: forall db tab m.
          ( MonadPG m
          , Table db (tab Hask)
-         , KnownSymbol (GenTyCon (Rep (tab Hask)))
-         , SingCols db (GenTabFields (Rep (tab Hask)))
          , TabProps2 db tab (GenTabFields (Rep (tab Hask)))
          , Generic (tab Op)
          , Generic (Write Op db tab)
@@ -493,8 +484,6 @@ update tab upd cond = liftPG $ do
 insertRet :: forall db tab m prjf.
             ( MonadPG m
             , Table db (tab Hask)
-            , KnownSymbol (GenTyCon (Rep (tab Hask)))
-            , SingCols db (GenTabFields (Rep (tab Hask)))
             , TabProps2 db tab (GenTabFields (Rep (tab Hask)))
             , GRecToType Identity (Rep (tab Op)) (GetOpFields Op (GenTabFields (Rep (tab Hask))))
             , GTypeToRec Identity (Rep (Write Op db tab)) (GetOpFields (Write' Op db tab) (GenTabFields (Rep (tab Hask))))
@@ -513,8 +502,6 @@ insertRet tab row ret = liftPG $ do
 updateRet :: forall db tab m prjf.
             ( MonadPG m
             , Table db (tab Hask)
-            , KnownSymbol (GenTyCon (Rep (tab Hask)))
-            , SingCols db (GenTabFields (Rep (tab Hask)))
             , TabProps2 db tab (GenTabFields (Rep (tab Hask)))
             , Generic (tab Op)
             , Generic (Write Op db tab)
