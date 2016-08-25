@@ -1,0 +1,67 @@
+# Taken from https://github.com/commercialhaskell/stack
+
+# Here, we test with both stack and cabal. The reasons to test with cabal are
+# twofold:
+#
+# 1. We want to ensure that the bootstrapping case works
+#
+# 2. Building with stack would be too easy a test, since it guarantees us a
+# sane build environment. In CI, we want to make our life more difficult, so we
+# use cabal without any Stackage snapshots.
+#
+language: c
+sudo: false
+
+cache:
+    directories:
+        - $HOME/.ghc
+        - $HOME/.cabal
+        - $HOME/.stack
+
+matrix:
+  include:
+    - env: BUILD=cabal CABALVER=1.24 GHCVER=8.0.1
+      compiler: ": #GHC 8.0.1"
+      addons: {apt: {packages: [cabal-install-1.24,ghc-8.0.1], sources: [hvr-ghc]}}
+
+    - env: BUILD=stack GHCVER=8.0.1 STACK_YAML=stack.yaml
+      compiler: ": #stack 8.0.1"
+      addons: {apt: {packages: [ghc-8.0.1], sources: [hvr-ghc]}}
+
+# Note: the distinction between `before_install` and `install` is not important.
+# - in before_install we install build tools
+# - in install we install (haskell) dependencies
+before_install:
+ - unset CC
+ - case "$BUILD" in
+     stack)
+       export PATH=$HOME/.local/bin:/opt/ghc/$GHCVER/bin:$PATH;;
+     cabal)
+       export PATH=$HOME/.cabal/bin:/opt/ghc/$GHCVER/bin:/opt/cabal/$CABALVER/bin:$PATH;;
+   esac
+ - sh .travis-setup.sh
+
+install:
+ - echo "$(ghc --version) [$(ghc --print-project-git-commit-id 2> /dev/null || echo '?')]"
+ - case "$BUILD" in
+     stack)
+       stack --no-terminal test --only-dependencies;;
+     cabal)
+       cabal --version;
+       travis_retry cabal update;
+       stack --compiler=ghc-$GHCVER sdist --pvp-bounds=both &&
+       cabal install --only-dependencies --enable-tests --enable-benchmarks --force-reinstalls --ghc-options=-O0 --reorder-goals --max-backjumps=-1;;
+   esac
+
+script:
+ - set -e; case "$BUILD" in
+     stack)
+       stack --no-terminal test --haddock --no-haddock-deps --ghc-options="-Wall";;
+     cabal)
+       cabal configure --enable-tests --enable-benchmarks -v2 --ghc-options="-O0 -Wall";
+       cabal build;
+       cabal test;
+       cabal check;
+       cabal sdist;
+       cabal copy;
+   esac
