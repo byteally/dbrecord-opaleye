@@ -1,5 +1,7 @@
 # dbrecord-opaleye
 
+[![Build Status](https://travis-ci.org/byteally/dbrecord-opaleye.svg?branch=master)](https://travis-ci.org/byteally/dbrecord-opaleye)
+
 *dbrecord-opaleye* is a haskell library that
 * Lets you share models across different layers (DB, API, App layer) 
 * Automatically takes care of changing the shape of your model depending on the operation. (Projection, aggregation, left join)
