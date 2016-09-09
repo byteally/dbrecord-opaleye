@@ -382,7 +382,7 @@ printSql :: Default Unpackspec a a => Query a -> IO ()
 printSql = putStrLn . maybe "Empty query" id . showSqlForPostgres
 
 
-instance Default Constant a a where
+instance {-# OVERLAPPABLE #-} Default Constant a a where
   def = Constant id
   
 instance Default Constant a (Maybe a) where
