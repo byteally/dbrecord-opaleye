@@ -385,7 +385,7 @@ printSql = putStrLn . maybe "Empty query" id . showSqlForPostgres
 instance {-# OVERLAPPABLE #-} Default Constant a a where
   def = Constant id
   
-instance {-# OVERLAPPABLE #-} Default Constant a (Maybe a) where
+instance Default Constant a (Maybe a) where
   def = Constant Just
 
 instance (KnownSymbol tyName) => IsSqlType (PGCustom ty (EnumRep ('PGTypeName tyName) enums)) where
