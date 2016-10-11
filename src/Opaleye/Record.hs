@@ -155,25 +155,25 @@ type family GetOpFields (f :: * -> *) (fs :: [*]) :: [*] where
 queryRec :: forall db tab flds opFlds.
            ( Table db (tab Hask)
            , Default ColumnMaker (HList Identity opFlds) (HList Identity opFlds)
-           , flds ~ (GetTableFields (tab Hask))
+           , flds ~ (OriginalTableFields (tab Hask))
            , opFlds ~ GetOpFields Op flds
            , TabProps2 db tab flds
            ) => Tab db tab -> Query (HList Identity opFlds)
 queryRec tab =
-  let cols = singCols (Proxy @db) (Proxy @(GetTableFields (tab Hask)))
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
   in queryTable (O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (tabProps2 tab cols))
 
 query :: forall db tab flds opFlds.
         ( Table db (tab Hask)
         , Default ColumnMaker (HList Identity opFlds) (HList Identity opFlds)
-        , flds ~ (GetTableFields (tab Hask))
+        , flds ~ (OriginalTableFields (tab Hask))
         , opFlds ~ GetOpFields Op flds
         , TabProps2 db tab flds
         , Generic (tab Op)
         , GRecToType Identity (Rep (tab Op)) opFlds
         ) => Tab db tab -> Query (tab Op)
 query tab =
-  let cols = singCols (Proxy @db) (Proxy @(GetTableFields (tab Hask)))
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
   in queryTable (O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (tabProps2 tab cols)) >>^ recToType
 
 
@@ -449,7 +449,7 @@ insert :: forall db tab m.
          , Default Constant (HaskW db tab) (Write Op db tab)
          ) => MonadPG m => Tab db tab -> (HaskW db tab) -> m ()
 insert tab row = liftPG $ do
-  let cols = singCols (Proxy @db) (Proxy @(GetTableFields (tab Hask)))
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
       table = O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (tabProps2 tab cols)
   conn <- ask
   unsafeIOToTransaction . void $ M.runInsert conn table (typeToRec (constant row :: Write Op db tab))
@@ -461,7 +461,7 @@ delete :: forall db tab m.
          , GRecToType Identity (Rep (tab Op)) (GetOpFields Op (GenTabFields (Rep (tab Hask))))
          ) => Tab db tab -> (tab Op -> (ReadSpec Bool)) -> m Int64
 delete tab cond = liftPG $ do
-  let cols = singCols (Proxy @db) (Proxy @(GetTableFields (tab Hask)))
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
       table = O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (recToType <$> tabProps2 tab cols)
   conn <- ask
   unsafeIOToTransaction $ M.runDelete conn table cond
@@ -476,7 +476,7 @@ update :: forall db tab m.
          , GTypeToRec Identity (Rep (Write Op db tab)) (GetOpFields (Write' Op db tab) (GenTabFields (Rep (tab Hask))))
          ) => Tab db tab -> (tab Op -> Write Op db tab) -> (tab Op -> ReadSpec Bool) -> m Int64
 update tab upd cond = liftPG $ do
-  let cols = singCols (Proxy @db) (Proxy @(GetTableFields (tab Hask)))
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
       table = O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (dimap typeToRec recToType $ tabProps2 tab cols)
   conn <- ask
   unsafeIOToTransaction $ M.runUpdate conn table upd cond
@@ -493,7 +493,7 @@ insertRet :: forall db tab m prjf.
             , Default Constant (HaskW db tab) (Write Op db tab)
             ) => Tab db tab -> (HaskW db tab) -> (tab Op -> tab prjf) -> m [tab (OpalResult prjf)]
 insertRet tab row ret = liftPG $ do
-  let cols = singCols (Proxy @db) (Proxy @(GetTableFields (tab Hask)))
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
       table = O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (dimap typeToRec recToType $ tabProps2 tab cols)
   conn <- ask
   unsafeIOToTransaction $ M.runInsertReturning conn table (constant row :: Write Op db tab) ret
@@ -510,7 +510,7 @@ updateRet :: forall db tab m prjf.
             , Default QueryRunner (tab prjf) (tab (OpalResult prjf))
             ) => Tab db tab -> (tab Op -> Write Op db tab) -> (tab Op -> ReadSpec Bool) -> (tab Op -> tab prjf) -> m [tab (OpalResult prjf)]
 updateRet tab upd cond ret = liftPG $ do
-  let cols = singCols (Proxy @db) (Proxy @(GetTableFields (tab Hask)))
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
       table = O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (dimap typeToRec recToType $ tabProps2 tab cols)
   conn <- ask
   unsafeIOToTransaction $ M.runUpdateReturning conn table upd cond ret
@@ -567,11 +567,11 @@ aggregate :: forall (aggs :: [AggFn]) tab f db flds.
             , GTypeToRec Identity (Rep (tab f)) (GetOpFields f flds)
             , GRecToType Identity (Rep (tab (Agg f aggs))) (GetOpFields (Agg f aggs) flds)
             , TabAgg f aggs flds
-            , SingCols db flds
-            , flds ~ (GetTableFields (tab Hask))
+            , SingCols db flds (ColumnNames (tab Hask))
+            , flds ~ (OriginalTableFields (tab Hask))
             ) => Tab db tab -> Query (tab f) -> Query (tab (Agg f aggs))
 aggregate _ tab =
-  let cols = singCols (Proxy @db) (Proxy @flds)
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
   in O.aggregate (tabAgg (Proxy @'(f, aggs)) cols) (tab >>^ typeToRec) >>^ recToType
 
 aggregateOrdered :: forall (aggs :: [AggFn]) tab f db flds.
@@ -581,11 +581,11 @@ aggregateOrdered :: forall (aggs :: [AggFn]) tab f db flds.
                    , GRecToType Identity (Rep (tab f)) (GetOpFields f flds)
                    , GRecToType Identity (Rep (tab (Agg f aggs))) (GetOpFields (Agg f aggs) flds)
                    , TabAgg f aggs flds
-                   , SingCols db flds
-                   , flds ~ (GetTableFields (tab Hask))
+                   , SingCols db flds (ColumnNames (tab Hask))
+                   , flds ~ (OriginalTableFields (tab Hask))
                    ) => Tab db tab -> Order (tab f) -> Query (tab f) -> Query (tab (Agg f aggs))
 aggregateOrdered _ ordBy tab =
-  let cols = singCols (Proxy @db) (Proxy @flds)
+  let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
   in O.aggregateOrdered (contramap recToType ordBy) (tabAgg (Proxy @'(f, aggs)) cols) (tab >>^ typeToRec) >>^ recToType     
 
 -- column "User.id" must appear in the GROUP BY clause or be used in an aggregate function

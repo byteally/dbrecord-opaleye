@@ -96,7 +96,10 @@ instance Database TestDB where
 instance Table TestDB (User Hask) where
   type HasDefault (User Hask) = '["user_id"]
 
-instance Table TestDB (Address Hask)
+instance Table TestDB (Address Hask) where
+  type TableName (Address Hask) = "address"
+  type ColumnNames (Address Hask) = '[ '("postal_code", "zip code")
+                                     ]
 
 
 
