@@ -3,7 +3,6 @@ packages:
 - location: '.'
 - location: 
     git: https://github.com/byteally/dbrecord.git
-    commit: d2cb4babf421eb38c219505e984106bc83fc7cc7
 
 
 extra-deps: []
