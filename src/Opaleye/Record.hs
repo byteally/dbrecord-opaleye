@@ -381,8 +381,10 @@ instance ( ToJSON a
 printSql :: Default Unpackspec a a => Query a -> IO ()
 printSql = putStrLn . maybe "Empty query" id . showSqlForPostgres
 
+instance {-# OVERLAPPING #-} Default Constant () () where
+  def = Constant id
 
-instance {-# OVERLAPPABLE #-} Default Constant a a where
+instance Default Constant a a where
   def = Constant id
   
 instance Default Constant a (Maybe a) where
