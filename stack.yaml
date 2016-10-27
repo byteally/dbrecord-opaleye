@@ -1,9 +1,7 @@
 resolver: nightly-2016-08-21 
 packages:
 - location: '.'
-- location: 
-    git: https://github.com/byteally/dbrecord.git
-    commit: dafb00fa1de25f4a612abdade31ca93358bd3098
+- location: '../dbrecord'
 
 
 extra-deps: []
