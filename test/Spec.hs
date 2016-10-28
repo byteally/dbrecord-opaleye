@@ -3,20 +3,15 @@
 import Opaleye hiding (Column, Table, leftJoin, aggregate)
 import qualified Opaleye as O
 import Opaleye.Constant
-import Opaleye.Record
-import Database.Migration hiding (Column, def, Col)
-import qualified Database.Migration as Mig
-import Database.Transaction
+import Opaleye.Record hiding (def)
 import Data.Aeson
 import Data.Profunctor.Product.Default
 import Control.Monad.Reader
-import Data.Functor.Identity
 import Data.Int
 import Data.Text (Text)
 import qualified Data.Text as T
 import GHC.Generics
 import Data.Profunctor
-import Control.Arrow
 
 data TestDB
 
@@ -90,6 +85,7 @@ instance ( Profunctor p
 
   
 instance Database TestDB where
+  type DB TestDB     = 'Postgres
   type Tables TestDB = '[User Hask, Address Hask]
   type Types TestDB  = '[Gender]
 
@@ -206,9 +202,9 @@ userAgg = getAll userAggQ1 :: ReaderT (Config a) PG _
 -- Note that we can send Nothing in place of userId as we declared that it has a default value earlier
 
 
--- uUserRow :: HaskW TestDB User
--- HaskW stands for Haskell writable
-uUserRow = User Nothing (T.pack "brian") (Age 21) Male (AddressId 1) :: HaskW TestDB User
+-- uUserRow :: Write Hask TestDB User
+-- Write Hask stands for Haskell writable
+uUserRow = User Nothing (T.pack "brian") (Age 21) Male (AddressId 1) :: Write Hask TestDB User
 
 -- userInsert :: ReaderT (Config a) PG ()
 userInsert = insert (Tab @TestDB @User) uUserRow :: ReaderT (Config a) PG ()

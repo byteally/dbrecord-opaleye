@@ -2,16 +2,20 @@
 {-# LANGUAGE DataKinds, TypeFamilyDependencies, UndecidableInstances, ExplicitForAll, TypeApplications, ScopedTypeVariables, FlexibleContexts, MultiParamTypeClasses, DeriveGeneric, Arrows, TypeOperators, FlexibleInstances, GeneralizedNewtypeDeriving, GADTs, PartialTypeSignatures #-}
 -- | 
 
-module Opaleye.Record where
+module Opaleye.Record
+       ( module Opaleye.Record
+       , module Schema
+       , module Transaction
+       , returnA
+       ) where
 
 import Opaleye hiding (Column, Table, leftJoin, aggregate, literalColumn)
 import qualified Opaleye as O
 import Opaleye.Internal.TableMaker (ColumnMaker)
 import Opaleye.Internal.Join (NullMaker)
-import Database.Migration hiding (Column, def, Col)
-import qualified Database.Migration as Mig
+import Database.Interface hiding (Column, def, Col)
+import qualified Database.Interface as DBRec
 import Database.Transaction
-import Database.Types
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8)
@@ -47,23 +51,20 @@ import Data.List (find)
 import Text.Read
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as HPQ
 import Opaleye.Internal.PGTypes (literalColumn)
-
+import qualified Database.Schema as Schema
+import qualified Database.Transaction as Transaction
+import Control.Arrow
 
 data Op t
 newtype Hask t = Hask t
-data HaskW' db (tab :: (* -> *) -> *) t
-type HaskW db (tab :: (* -> *) -> *) = tab (HaskW' db tab)
 data Write' (f :: * -> *) db (tab :: (* -> *) -> *) t
 type Write (f :: * -> *) db (tab :: (* -> *) -> *) = tab (Write' f db tab)
 data LJoin (f :: * -> *) t
-type instance Column Op t   = O.Column (OpTypeRep t)
-type instance Column Hask t = Hask t
 type VoidF = Const ()
 
 type family Col f (cn :: Symbol) (t :: *) = (r :: *) where
   Col Op   cn r            = O.Column (OpTypeRep r)
   Col Hask cn r            = r
-  Col (HaskW' db tab) cn r = MkDefFldOpt (Elem (HasDefault (tab Hask)) cn) r
   Col (Write' f db tab) cn r = MkDefFldOpt (Elem (HasDefault (tab Hask)) cn) (Col f cn r)
   Col (Prj f flds) cn r    = ColSelect (Elem flds cn) (Col f cn r)
   Col (LJoin f) cn r       = Col f cn (Maybe r)
@@ -133,14 +134,14 @@ type family OpTypeRep (t :: *) = (r :: *) | r -> t where
   OpTypeRep a             = PGCustom a (GetPGTypeK (GetPGTypeRep a) (GetTypeFields a))
 
 data PGCustom a pg
-data OpRep (n :: PGTypeK)
+data OpRep (n :: DBTypeK)
 data NTOpRep (t :: *) (rep :: *)
-data EnumRep (pgK :: PGTypeK) (cons :: [Symbol])
+data EnumRep (dbK :: DBTypeK) (cons :: [Symbol])
 
-type family GetPGTypeK (pgK :: PGTypeK) (flds :: [(Symbol, [*])]) = (r :: *) where
-  GetPGTypeK ('PGCustomType a pgK 'True) _ = NTOpRep (InnerTy a) (OpTypeRep (InnerTy a))
-  GetPGTypeK ('PGCustomType a pgK 'False) '[ '(_,_)] = OpRep pgK
-  GetPGTypeK ('PGCustomType a pgK 'False) flds       = EnumRep pgK (GetEnumCons flds)
+type family GetPGTypeK (pgK :: DBTypeK) (flds :: [(Symbol, [*])]) = (r :: *) where
+  GetPGTypeK ('DBCustomType a pgK 'True) _ = NTOpRep (InnerTy a) (OpTypeRep (InnerTy a))
+  GetPGTypeK ('DBCustomType a pgK 'False) '[ '(_,_)] = OpRep pgK
+  GetPGTypeK ('DBCustomType a pgK 'False) flds       = EnumRep pgK (GetEnumCons flds)
 
 type family GetEnumCons (flds :: [(Symbol, [*])]) :: [Symbol] where
   GetEnumCons ('(c, _) ': cons) = c ': GetEnumCons cons
@@ -182,14 +183,14 @@ type family Not (t :: Bool) :: Bool where
   Not 'False = 'True
 
 class TabProps2 db (tab :: (* -> *) -> *) (flds:: [*]) where
-  tabProps2 :: Tab db tab -> HList (Const Mig.Column) flds -> TableProperties (HList Identity (GetOpFields (Write' Op db tab) flds)) (HList Identity (GetOpFields Op flds))
+  tabProps2 :: Tab db tab -> HList (Const DBRec.Column) flds -> TableProperties (HList Identity (GetOpFields (Write' Op db tab) flds)) (HList Identity (GetOpFields Op flds))
 
 instance ( TabProps2 db tab flds
          , hasDef ~ Elem (HasDefault (tab Hask)) fn
          , (WriteSpec (Not hasDef) t) ~ (MkDefFldOpt hasDef (O.Column (OpTypeRep t)))
          , TabProps (Not hasDef) t
          ) => TabProps2 db tab ((fn ::: t) ': flds) where
-  tabProps2 pxyDB ((Const (Mig.Column cn _)) :& cols)
+  tabProps2 pxyDB ((Const (DBRec.Column cn _)) :& cols)
     = let prop = tabProps (Proxy @ (Not hasDef)) (T.unpack cn)
       in (:&) <$> dimap (valOf . runIdentity . headRec) (Identity . Field) prop
          <*> lmap (tailRec) (tabProps2 pxyDB cols)
@@ -198,13 +199,13 @@ instance TabProps2 db tab '[] where
   tabProps2 _ Nil = pure Nil
 
 class TabAgg (f :: * -> *) (aggs :: [AggFn]) (flds:: [*]) where
-  tabAgg :: Proxy '(f, aggs) -> HList (Const Mig.Column) flds -> Aggregator (HList Identity (GetOpFields f flds)) (HList Identity (GetOpFields (Agg f aggs) flds))
+  tabAgg :: Proxy '(f, aggs) -> HList (Const DBRec.Column) flds -> Aggregator (HList Identity (GetOpFields f flds)) (HList Identity (GetOpFields (Agg f aggs) flds))
 
 instance ( TabAgg f aggs flds
          , AggSpec fn f t aggs (ElemAgg fn aggs)
          , (AggSpecRes fn f t aggs (ElemAgg fn aggs)) ~ (LookupAgg f fn t aggs)
          ) => TabAgg f aggs ((fn ::: t) ': flds) where
-  tabAgg pagg ((Const (Mig.Column _ _)) :& cols)
+  tabAgg pagg ((Const (DBRec.Column _ _)) :& cols)
     = let agg = aggSpec (Proxy @'(fn, f, t, aggs, ElemAgg fn aggs))
       in (:&) <$> dimap (valOf . runIdentity . headRec) (Identity . Field) agg
               <*> lmap (tailRec) (tabAgg pagg cols)
@@ -323,9 +324,9 @@ fromNewType = O.unsafeCoerceColumn
 toNewType :: O.Column (OpTypeRep t) -> O.Column (PGCustom nt (NTOpRep t tr))
 toNewType = O.unsafeCoerceColumn
 
-newtype PGEnum (pgK :: PGTypeK) (cons :: [Symbol]) a = PGEnum { getEnum :: a }
+newtype PGEnum (pgK :: DBTypeK) (cons :: [Symbol]) a = PGEnum { getEnum :: a }
 
-instance ( ShowPGType pgK
+instance ( ShowDBType 'Postgres pgK
          , Typeable t
          , Typeable pgK
          , Typeable cons
@@ -338,7 +339,7 @@ instance ( ShowPGType pgK
 instance ( Typeable t
          , Typeable pgK
          , Read t
-         , ShowPGType pgK
+         , ShowDBType 'Postgres pgK
          , Typeable cons
          , All SingE cons
          , SingI cons
@@ -346,7 +347,7 @@ instance ( Typeable t
   fromField f Nothing = returnError UnexpectedNull f ""
   fromField f (Just val) = do
     tName <- typename f
-    let pgTy = Mig.showPGType (Proxy :: Proxy pgK)
+    let pgTy = DBRec.showDBType (Proxy :: Proxy 'Postgres) (Proxy :: Proxy pgK)
         pgTyBS = encodeUtf8 pgTy
         haskTy = typeRep (Proxy @t)
         enumNames = fromSing (sing :: Sing cons)
@@ -372,7 +373,7 @@ instance (ToJSON a) => Default Constant (Json a) (O.Column (PGCustom (Json a) PG
 instance ( ToJSON a
          , FromJSON a
          ) => QueryRunnerColumnDefault (PGCustom (Json a) PGJsonb) (Json a) where
-  queryRunnerColumnDefault = fmap (Mig.json . getResult . fromJSON) fieldQueryRunnerColumn
+  queryRunnerColumnDefault = fmap (DBRec.json . getResult . fromJSON) fieldQueryRunnerColumn
     where
       getResult (Success a) = a
       getResult (Error e)   = error $ show e
@@ -388,7 +389,7 @@ instance {-# OVERLAPPABLE #-} Default Constant a a where
 instance Default Constant a (Maybe a) where
   def = Constant Just
 
-instance (KnownSymbol tyName) => IsSqlType (PGCustom ty (EnumRep ('PGTypeName tyName) enums)) where
+instance (KnownSymbol tyName) => IsSqlType (PGCustom ty (EnumRep ('DBTypeName tyName) enums)) where
   showPGType _ = symbolVal (Proxy :: Proxy tyName)  
 
 
@@ -446,8 +447,8 @@ insert :: forall db tab m.
          , TabProps2 db tab (GenTabFields (Rep (tab Hask)))
          , GTypeToRec Identity (Rep (Write Op db tab)) (GetOpFields (Write' Op db tab) (GenTabFields (Rep (tab Hask))))
          , Generic (Write Op db tab)
-         , Default Constant (HaskW db tab) (Write Op db tab)
-         ) => MonadPG m => Tab db tab -> (HaskW db tab) -> m ()
+         , Default Constant (Write Hask db tab) (Write Op db tab)
+         ) => MonadPG m => Tab db tab -> (Write Hask db tab) -> m ()
 insert tab row = liftPG $ do
   let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
       table = O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (tabProps2 tab cols)
@@ -490,8 +491,8 @@ insertRet :: forall db tab m prjf.
             , Generic (tab Op)
             , Generic (Write Op db tab)
             , Default QueryRunner (tab prjf) (tab (OpalResult prjf))
-            , Default Constant (HaskW db tab) (Write Op db tab)
-            ) => Tab db tab -> (HaskW db tab) -> (tab Op -> tab prjf) -> m [tab (OpalResult prjf)]
+            , Default Constant (Write Hask db tab) (Write Op db tab)
+            ) => Tab db tab -> (Write Hask db tab) -> (tab Op -> tab prjf) -> m [tab (OpalResult prjf)]
 insertRet tab row ret = liftPG $ do
   let cols = getTableHFields (Proxy @db) (Proxy @(tab Hask))
       table = O.Table (T.unpack $ getConst $ getTableName @db @(tab Hask)) (dimap typeToRec recToType $ tabProps2 tab cols)
