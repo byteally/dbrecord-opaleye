@@ -2,8 +2,8 @@
 {-# LANGUAGE DataKinds, TypeFamilyDependencies, UndecidableInstances, ExplicitForAll, TypeApplications, ScopedTypeVariables, FlexibleContexts, MultiParamTypeClasses, DeriveGeneric, Arrows, TypeOperators, FlexibleInstances, GeneralizedNewtypeDeriving, GADTs, PartialTypeSignatures #-}
 -- | 
 
-module Opaleye.Record
-       ( module Opaleye.Record
+module Opaleye.DBRecord
+       ( module Opaleye.DBRecord
        , module Schema
        , module Transaction
        , returnA
@@ -13,9 +13,9 @@ import Opaleye hiding (Column, Table, leftJoin, aggregate, literalColumn)
 import qualified Opaleye as O
 import Opaleye.Internal.TableMaker (ColumnMaker)
 import Opaleye.Internal.Join (NullMaker)
-import Database.Interface hiding (Column, def, Col)
-import qualified Database.Interface as DBRec
-import Database.Transaction
+import DBRecord.Interface hiding (Column, def, Col, Order)
+import qualified DBRecord.Interface as DBRec
+import DBRecord.Transaction
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Text.Encoding (encodeUtf8)
@@ -51,8 +51,8 @@ import Data.List (find)
 import Text.Read
 import qualified Opaleye.Internal.HaskellDB.PrimQuery as HPQ
 import Opaleye.Internal.PGTypes (literalColumn)
-import qualified Database.Schema as Schema
-import qualified Database.Transaction as Transaction
+import qualified DBRecord.Schema as Schema
+import qualified DBRecord.Transaction as Transaction
 import Control.Arrow
 
 data Op t
