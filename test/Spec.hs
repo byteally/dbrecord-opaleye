@@ -3,7 +3,7 @@
 import Opaleye hiding (Column, Table, leftJoin, aggregate)
 import qualified Opaleye as O
 import Opaleye.Constant
-import Opaleye.Record hiding (def)
+import Opaleye.DBRecord hiding (def)
 import Data.Aeson
 import Data.Profunctor.Product.Default
 import Control.Monad.Reader
@@ -184,7 +184,7 @@ userAggQ1 = aggregate @'[Sum "user_id", GroupBy "name"] (Tab @TestDB @User) user
 userAggQ2 = aggregate @'[Sum "age", GroupBy "name"] (Tab @TestDB @User) userPrjQ
 
 -- userAggQ3 :: Query (User (Agg Op '['Sum "user_id", 'Sum "age", 'GroupBy "name"]))
-userAggQ3 = Opaleye.Record.aggregateOrdered @'[Sum "user_id", Sum "age", GroupBy "name"] (Tab @TestDB @User) (asc name) userQ
+userAggQ3 = Opaleye.DBRecord.aggregateOrdered @'[Sum "user_id", Sum "age", GroupBy "name"] (Tab @TestDB @User) (asc name) userQ
 
 -- userAggQ4 :: Query (User (Agg (Prj (Prj Op '["age", "name"]) '["name"]) '['GroupBy "name"]))
 userAggQ4 = aggregate @'[GroupBy "name"] (Tab @TestDB @User) userPrjQ1

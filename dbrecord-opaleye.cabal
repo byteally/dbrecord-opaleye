@@ -15,7 +15,7 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Opaleye.Record
+  exposed-modules:     Opaleye.DBRecord
   build-depends:       base >= 4.7 && < 5
                      , dbrecord == 0.1.*
                      , opaleye >= 0.4.2
